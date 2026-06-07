@@ -159,8 +159,8 @@ require (
 	github.com/nats-io/nats.go v1.52.0
 	github.com/opencontainers/go-digest v1.0.0
 	github.com/opencontainers/image-spec v1.1.1
-	github.com/openweft/weft-driver-plugin v0.2.1-0.20260607160541-d65ca85c6de0
-	github.com/openweft/weft-drivers v0.1.1-0.20260607160434-7dc01651bf55
+	github.com/openweft/weft-driver-plugin v0.3.0
+	github.com/openweft/weft-drivers v0.2.0
 	github.com/openweft/weft-nbd v0.3.3
 	github.com/pkg/sftp v1.13.10
 	go.etcd.io/etcd/client/v3 v3.6.11
