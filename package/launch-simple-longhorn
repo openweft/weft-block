@@ -1,0 +1,57 @@
+#!/bin/bash
+
+set -x
+set -e
+mount --rbind /host/dev /dev
+
+volume=$1
+size=$2
+frontend=$3
+
+if [ -z $volume ]
+then
+        echo "Usage: launch-simple-longhorn <volume_name> <frontend> "
+        echo "<volume_name>: Required. User defined volume name"
+        echo "<frontend>: Optional. By default 'tgt-blockdev'. "
+	exit -1
+fi
+
+if [ -z $size ]
+then
+        echo Use default size 1g
+        size="1g"
+fi
+
+if [ -z $frontend ]
+then
+        echo Use default frontend TGT block device
+        frontend="tgt-blockdev"
+fi
+
+function start() {
+    set +e
+    while true;
+    do
+        /usr/local/bin/grpc_health_probe -addr localhost:8500
+        if [[ $? -eq 0 ]];
+        then
+            echo longhorn instance manager is ready
+            break;
+        fi
+        sleep 1
+    done
+    set -e
+
+    tgtd -f 2>&1 | tee /var/log/tgtd.log &
+
+    longhorn-instance-manager process create --name "$volume-r" --binary /usr/local/bin/longhorn --port-count 15 --port-args "--listen,localhost:" -- replica /volume/ "--size" $size
+
+    # wait for the replica to be started
+    sleep 5
+
+    longhorn-instance-manager process create --name "$volume-e" --binary /usr/local/bin/longhorn --port-count 1 --port-args "--listen,localhost:" -- controller $volume --frontend $frontend "--size" $size "--current-size" $size --replica tcp://localhost:10000
+}
+
+start &
+
+exec longhorn-instance-manager daemon

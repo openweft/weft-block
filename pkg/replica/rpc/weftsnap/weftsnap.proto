@@ -1,0 +1,91 @@
+syntax = "proto3";
+
+package weftblock.replicasnap;
+
+option go_package = "github.com/openweft/weft-block/pkg/replica/rpc/weftsnap";
+
+// weftsnap.proto carries the weft-block extension to the upstream Longhorn
+// ReplicaService : a streaming "give me this snapshot's frozen bytes" RPC.
+//
+// Upstream Longhorn's backup flow goes through the sync-agent's CreateBackup
+// which writes directly to a longhorn-blessed backupstore (S3, NFS) using
+// their own metadata format. We want a more generic surface : raw bytes out,
+// raw bytes in, so the weft-block driver can route the stream through its
+// own BackupTarget abstraction (s3 / sftp, with future targets unfrozen).
+//
+// The RPC is registered alongside the upstream ReplicaService on the same
+// gRPC server — see pkg/replica/rpc/server.go's RegisterReplicaServer +
+// pkg/replica/rpc/weftsnap_server.go for the wiring.
+
+// SnapshotReader streams a snapshot's frozen contents from a replica. The
+// server opens the snapshot at the start of the stream (read-only, doesn't
+// touch the chain) and closes it when the stream ends (natural completion
+// OR client cancel).
+service SnapshotReader {
+  // Read streams the snapshot's bytes. Empty `ranges` → full stream from
+  // offset 0 to snapshot size. Non-empty `ranges` → sparse stream
+  // covering only the requested (offset, size) windows in the listed
+  // order — used by the incremental backup path after Compare reports
+  // which blocks differ from the parent.
+  rpc Read(ReadRequest) returns (stream ReadChunk);
+
+  // Compare returns the (offset, size) byte windows that differ between
+  // snapshot_name and parent_snapshot_name. Backed by upstream Longhorn
+  // BackupStatus.CompareSnapshot which walks the replica's sector
+  // location table — much cheaper than a SHA-256-per-block sweep.
+  // Returns Unimplemented when the server's compare path isn't wired
+  // (the driver-side falls back to a full backup with a logged note).
+  rpc Compare(CompareRequest) returns (CompareResponse);
+}
+
+// Range is one contiguous (offset, size) byte window.
+message Range {
+  int64 offset = 1;
+  int64 size   = 2;
+}
+
+message ReadRequest {
+  // SnapshotName is the engine-side name (e.g. the registry UUID).
+  string snapshot_name = 1;
+  // VolumeName matches what the replica was opened with (BackupStatus
+  // assertOpen check needs it).
+  string volume_name = 2;
+  // ChunkSize : server-emitted chunk size in bytes. 0 → server default
+  // (4 MiB). Tunable so very-high-latency clients can ask for bigger
+  // chunks to amortise grpc framing.
+  int64 chunk_size = 3;
+  // Ranges, when non-empty, restricts the stream to the given byte
+  // windows (in order, no de-duplication). Empty = full stream.
+  repeated Range ranges = 4;
+}
+
+message ReadChunk {
+  // Offset is the byte offset of this chunk's first byte within the
+  // snapshot. Always monotonically increasing across the stream.
+  int64 offset = 1;
+  // Data is the chunk's payload. Length is ≤ chunk_size ; the final
+  // chunk of a range may be smaller when range_size % chunk_size != 0.
+  bytes data = 2;
+  // Last is true ONLY on the final chunk of the whole stream.
+  bool last = 3;
+}
+
+message CompareRequest {
+  // SnapshotName is the newer snapshot (the one we'd back up from).
+  string snapshot_name = 1;
+  // ParentSnapshotName is the older one (which the client already has
+  // a backup of). Empty parent = "compare against nothing" = full.
+  string parent_snapshot_name = 2;
+  string volume_name = 3;
+  // BlockSize is the granularity the compare walker emits ranges at.
+  // 0 → server default. Practical values : 1 MiB to 16 MiB.
+  int64 block_size = 4;
+}
+
+message CompareResponse {
+  // BlockSize echoes the effective compare granularity.
+  int64 block_size = 1;
+  // Ranges are the byte windows where SnapshotName differs from
+  // ParentSnapshotName. Empty list = identical snapshots.
+  repeated Range ranges = 2;
+}

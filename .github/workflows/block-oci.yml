@@ -1,0 +1,90 @@
+name: weft-block → OCI
+
+# Builds the pure-Go weft-block plugin (Longhorn data-plane fork: controller +
+# replica + NBD frontend, wrapped in a drivers.VolumeDriver served over the
+# weft go-plugin transport) for each supported (os,arch) and publishes a
+# single multi-arch OCI image to GHCR. weft pulls it at runtime via
+# weft/driverplugins (local-first, else OCI). Same packaging convention as
+# weft-driver-qemu / weft-driver-vz (index → per-(os,arch) image manifest →
+# config{os,architecture} + 1 layer = the raw executable).
+#
+# Linux-only by data-plane design (the NBD frontend uses in-kernel NBD via
+# ioctls; sparse-tools needs Stat_t.Ctim). Cross-compiled on one ubuntu
+# runner; both linux/amd64 and linux/arm64.
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "OCI tag (default: v<short-sha>)"
+        required: false
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: read
+  packages: write
+
+env:
+  BINARY: weft-block
+  BINARY_MEDIATYPE: application/vnd.openweft.driver.binary
+  ARTIFACT_TYPE: application/vnd.openweft.weft-driver
+
+jobs:
+  build-publish:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.26'
+
+      - name: Cross-compile weft-block for each Linux target
+        run: |
+          set -euo pipefail
+          # weft-block hosts the storage data plane — only the platforms we
+          # support as VM hosts are useful targets. macOS is intentionally
+          # skipped (the NBD frontend is Linux-only).
+          targets="linux/amd64 linux/arm64"
+          for t in $targets; do
+            os="${t%/*}"; arch="${t#*/}"
+            out="stage/${os}-${arch}/${BINARY}"
+            mkdir -p "$(dirname "$out")"
+            CGO_ENABLED=0 GOOS="$os" GOARCH="$arch" \
+              go build -trimpath -o "$out" ./cmd/${BINARY}
+          done
+          ls -lhR stage
+
+      - name: Install ORAS
+        uses: oras-project/setup-oras@v1
+
+      - name: Log in to GHCR
+        run: |
+          echo "${{ secrets.GITHUB_TOKEN }}" \
+            | oras login ghcr.io -u "${{ github.actor }}" --password-stdin
+
+      - name: Push per-arch images + assemble the multi-arch index
+        run: |
+          set -euo pipefail
+          repo="ghcr.io/${{ github.repository_owner }}/${BINARY}"
+          tag="${{ inputs.tag }}"; [ -n "$tag" ] || tag="v${GITHUB_SHA::12}"
+
+          children=""
+          for d in stage/*/; do
+            platform="$(basename "$d")"        # linux-arm64 | linux-amd64
+            os="${platform%-*}"; arch="${platform#*-}"
+            printf '{"architecture":"%s","os":"%s"}' "$arch" "$os" > "$d/config.json"
+            child="${repo}:${tag}-${platform}"
+            ( cd "$d" && oras push "$child" \
+                --artifact-type "${ARTIFACT_TYPE}" \
+                --config config.json:application/vnd.oci.image.config.v1+json \
+                --annotation "org.opencontainers.image.source=https://github.com/${{ github.repository }}" \
+                --annotation "org.opencontainers.image.revision=${GITHUB_SHA}" \
+                "${BINARY}:${BINARY_MEDIATYPE}" )
+            children="$children $child"
+          done
+
+          oras manifest index create "${repo}:${tag}" $children
+          oras tag "${repo}:${tag}" latest
+          echo "Published ${repo}:${tag} (+ :latest) for: $children"

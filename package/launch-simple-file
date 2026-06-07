@@ -1,0 +1,56 @@
+#!/bin/bash
+
+set -x
+set -e
+mount --rbind /host/dev /dev
+
+volume=$1
+size=$2
+frontend=$3
+
+if [ -z $volume ]
+then
+        echo "Usage: launch-simple-file <volume_name> <size> <frontend> "
+        echo "<volume_name>: Required. User defined volume name"
+        echo "<size>: Optional. User defined volume size"
+        echo "<frontend>: Optional. By default 'tgt-blockdev'. "
+	exit -1
+fi
+
+if [ -z $size ]
+then
+        echo Use default size 1g
+        size="1g"
+fi
+
+if [ -z $frontend ]
+then
+        echo Use default frontend TGT block device
+        frontend="tgt-blockdev"
+fi
+
+img=/volume/volume.img
+
+truncate -s $size $img
+
+
+function start() {
+    set +e
+    while true;
+    do
+        /usr/local/bin/grpc_health_probe -addr localhost:8500
+        if [[ $? -eq 0 ]];
+        then
+            echo longhorn instance manager is ready
+            break;
+        fi
+        sleep 1
+    done
+    set -e
+
+    longhorn-instance-manager engine create --name "$volume-e" --volume-name $volume --binary /usr/local/bin/longhorn --size $size --listen-ip 0.0.0.0 --frontend $frontend --enable-backend file --replica file://$img
+}
+
+start &
+
+exec longhorn-instance-manager daemon
