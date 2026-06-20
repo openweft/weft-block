@@ -40,8 +40,16 @@ type Volume struct {
 	ReplicaCount int        // desired replica count (1 single-node, 3 default 3-DC)
 	State       VolumeState
 	AttachedTo  string      // host UUID currently running the engine, "" when detached
-	CreatedAt   time.Time
-	UpdatedAt   time.Time
+	// SourceVolumeUUID + SourceSnapshot mark this Volume as a CoW clone of
+	// another Volume's snapshot. Set by CreateFromSnapshot ; empty for
+	// freshly-provisioned volumes. The reconcile loop on each placed-on host
+	// uses (SourceVolumeUUID, SourceSnapshot) on the Replica to bootstrap the
+	// new replica's chain from the parent snapshot (chain pointer, not a byte
+	// copy — the Longhorn replica chain naturally implements CoW).
+	SourceVolumeUUID string
+	SourceSnapshot   string
+	CreatedAt        time.Time
+	UpdatedAt        time.Time
 }
 
 // Replica is one replica placement on one host — what would be a Longhorn
@@ -54,8 +62,15 @@ type Replica struct {
 	DC         string       // for AZ-aware placement decisions + later moves
 	Address    string       // overlay endpoint (host:port); set by the agent after spawn
 	State      ReplicaState
-	CreatedAt  time.Time
-	UpdatedAt  time.Time
+	// SourceVolumeUUID + SourceSnapshot, when non-empty, instruct the spawner
+	// to bootstrap this replica's chain from the named snapshot on the parent
+	// volume rather than from an empty head. Mirrors the parent Volume's
+	// provenance fields ; carried per-replica so the per-host reconcile loop
+	// can see the bootstrap intent without re-reading the Volume record.
+	SourceVolumeUUID string
+	SourceSnapshot   string
+	CreatedAt        time.Time
+	UpdatedAt        time.Time
 }
 
 // Engine is the per-volume controller placement — what would be a Longhorn

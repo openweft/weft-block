@@ -34,6 +34,16 @@ integration-test:
 		--mount type=bind,source=/tmp,destination=/host/tmp,bind-propagation=rslave \
 		longhorn-engine-test ./scripts/integration-test
 
+# test-integration-clone runs the Go-native multi-host clone end-to-end test
+# (pkg/reconcile/integration_clone_test.go, build-tag `integration`). Unlike
+# `integration-test` above this stays inside `go test` — it spins up two
+# replica gRPC servers on loopback, writes ~16 MiB through the bootstrap
+# path, and asserts byte-for-byte equivalence. Linux-only (the InProcessSpawner
+# is `//go:build linux`) ; no sudo, no /dev/nbd, no network.
+.PHONY: test-integration-clone
+test-integration-clone:
+	go test -tags integration -v -count=1 -run TestIntegration_CloneAcrossHosts ./pkg/reconcile/
+
 .PHONY: sync-grpc-py
 sync-grpc-py:
 	docker buildx build --target base -t longhorn-engine-test -f Dockerfile .

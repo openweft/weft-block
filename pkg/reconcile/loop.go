@@ -122,13 +122,52 @@ func (l *Loop) reconcileVolume(ctx context.Context, v control.Volume) {
 func (l *Loop) reconcileReplica(ctx context.Context, log logrus.FieldLogger, v control.Volume, r control.Replica) {
 	switch r.State {
 	case control.ReplicaStatePending:
-		addr, err := l.Spawner.SpawnReplica(ctx, ReplicaRequest{
+		req := ReplicaRequest{
 			ReplicaUUID: r.UUID,
 			VolumeUUID:  v.UUID,
 			VolumeName:  v.Name,
 			SizeBytes:   v.SizeBytes,
 			SectorSize:  defaultSectorSize,
-		})
+		}
+		// CoW-clone bootstrap : when the replica record carries provenance
+		// (SourceVolumeUUID + SourceSnapshot), look up the parent volume's
+		// healthy replicas and hand their addresses to the spawner. The
+		// spawner dials them via the existing weftsnap.SnapshotReader gRPC
+		// to populate the new replica's chain from the named snapshot
+		// before it returns. Empty SourceSnapshot = standard empty-replica
+		// path ; SourceReplicaAddresses falls back to empty and the
+		// spawner can short-circuit.
+		if r.SourceSnapshot != "" && r.SourceVolumeUUID != "" {
+			req.SourceVolumeUUID = r.SourceVolumeUUID
+			req.SourceSnapshot = r.SourceSnapshot
+			if parent, perr := l.Store.GetVolume(ctx, r.SourceVolumeUUID); perr == nil {
+				req.SourceVolumeName = parent.Name
+			} else {
+				log.WithField("source_volume", r.SourceVolumeUUID).WithError(perr).
+					Warn("reconcile: clone bootstrap : parent volume not found ; spawner will short-circuit")
+			}
+			if parentReplicas, perr := l.Store.ListReplicasFor(ctx, r.SourceVolumeUUID); perr == nil {
+				for _, pr := range parentReplicas {
+					if pr.State != control.ReplicaStateRunning || pr.Address == "" {
+						continue
+					}
+					req.SourceReplicaAddresses = append(req.SourceReplicaAddresses, pr.Address)
+				}
+			}
+			if len(req.SourceReplicaAddresses) == 0 {
+				// Parent replicas are not yet Running. Defer spawn until
+				// they reach Running — try again on the next tick rather
+				// than spawning an empty replica that would silently
+				// shadow the bootstrap intent.
+				log.WithFields(logrus.Fields{
+					"replica":       r.UUID,
+					"source_volume": r.SourceVolumeUUID,
+					"snapshot":      r.SourceSnapshot,
+				}).Debug("reconcile: clone bootstrap : parent has no Running replicas yet ; deferring")
+				return
+			}
+		}
+		addr, err := l.Spawner.SpawnReplica(ctx, req)
 		if err != nil {
 			log.WithField("replica", r.UUID).WithError(err).Warn("reconcile: spawn replica failed; marking Faulted")
 			r.State = control.ReplicaStateFaulted

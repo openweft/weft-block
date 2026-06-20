@@ -164,6 +164,20 @@ type SnapshotInfo struct {
 }
 
 // ReplicaRequest is the input to SpawnReplica.
+//
+// SourceVolumeUUID + SourceSnapshot + SourceVolumeName + SourceReplicaAddresses,
+// when populated, instruct the spawner to bootstrap the freshly-created replica
+// chain from a named snapshot of an existing parent volume — the data-plane
+// half of the control-plane CreateFromSnapshot (clone) primitive in
+// control/clone.go. The spawner dials one of the parent's healthy replicas via
+// the existing weftsnap.SnapshotReader gRPC + writes the streamed bytes into
+// the new replica's chain before returning. An empty SourceSnapshot is the
+// V0.5-and-earlier "fresh empty volume" path : no copy, the replica comes up
+// empty and the engine populates the head on its own.
+//
+// The fields are carried per-request (rather than passed via a side channel)
+// so the Spawner abstraction stays self-contained — LogSpawner and the
+// non-Linux stub can no-op on them without growing extra surface.
 type ReplicaRequest struct {
 	ReplicaUUID  string
 	VolumeUUID   string
@@ -171,6 +185,13 @@ type ReplicaRequest struct {
 	SizeBytes    int64
 	SectorSize   int64
 	StateDir     string // <hostStateDir>/replicas/<replicaUUID>
+
+	// Bootstrap-from-snapshot fields. Non-empty SourceSnapshot triggers the
+	// CoW-clone bootstrap path on the SpawnReplica side.
+	SourceVolumeUUID       string
+	SourceSnapshot         string
+	SourceVolumeName       string
+	SourceReplicaAddresses []string
 }
 
 // EngineRequest is the input to SpawnEngine.

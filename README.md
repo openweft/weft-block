@@ -1,3 +1,5 @@
+<p align="center"><img src="https://raw.githubusercontent.com/openweft/brand/main/social/openweft.png" alt="openweft" width="720"></p>
+
 # weft-block
 
 Distributed block storage for weft — an **adaptation of [Longhorn](https://github.com/longhorn/longhorn-engine)**
