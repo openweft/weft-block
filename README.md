@@ -30,18 +30,40 @@ The control plane is **weft-native** (etcd + go-plugin) and replaces
 
 ## Status
 
-Phase 0 — repo bootstrap (current):
+Phase 0 — repo bootstrap (done):
 
 * [x] longhorn-engine source rehomed under `github.com/openweft/weft-block`
-* [x] `go.mod` rewritten (Go 1.25, our toolchain; weft-driver-plugin + weft-drivers replaces wired)
+* [x] `go.mod` rewritten (Go 1.26, our toolchain; weft-driver-plugin + weft-drivers wired)
 * [x] `control/` weft-native control-plane scaffold (types, deterministic placement, in-memory store + tests)
-* [ ] Build `pkg/replica` + `pkg/controller` after thinning incompatible deps
-      (k8s.io/{apimachinery,client-go,mount-utils} pulled by `go-common-libs`; the
-      `frontend/tgt` iSCSI path; `backupstore`'s AWS/Azure transitives — defer)
-* [ ] `cmd/weft-block/` go-plugin entrypoint wrapping engine+replica as `drivers.VolumeDriver`
-* [ ] NBD frontend in lieu of iSCSI (in-kernel NBD client = simpler integration with weft VMs)
-* [ ] etcd-backed `VolumeStore` impl
-* [ ] Per-host reconcile loop in weft-agent
+* [x] `pkg/replica` + `pkg/controller` build on `linux/arm64` (the agent's primary
+      platform). The k8s.io/{apimachinery,client-go,mount-utils} transitives pulled
+      by `go-common-libs` link without `frontend/tgt`; `backupstore` builds with the
+      `aws-sdk-go-v2` path (no Azure transitives reached from weft-block call sites).
+* [x] `cmd/weft-block/` go-plugin entrypoint — `drivers.VolumeDriver` over the
+      standard weft-driver-plugin transport. Hypervisor/Network/Image are stubbed
+      (this plugin only carries Volume); the host's hypervisor plugin covers the
+      other three. Reconcile loop + NATS fs-freeze coordinator + etcd store
+      selection all wired in `main.go`.
+* [x] NBD frontend in lieu of iSCSI (`pkg/frontend/nbd/`, Linux-only via
+      `nbd_linux.go`; `nbd_other.go` returns a clean "Linux-only" sentinel so the
+      package vets cross-platform).
+* [x] etcd-backed `VolumeStore` impl (`control/etcd/`).
+* [x] Per-host reconcile loop (`pkg/reconcile/`, In-process spawner on Linux,
+      LogSpawner elsewhere for structural state-machine dev).
+
+### Build target
+
+This module targets **`linux/arm64`, `CGO_ENABLED=0`**. Cross-build from darwin:
+
+```
+GOOS=linux GOARCH=arm64 CGO_ENABLED=0 go build ./...
+```
+
+Native darwin builds are **not** supported and not in scope : the data plane
+imports `longhorn/sparse-tools`, `rancher/go-fibmap` and `longhorn/backupstore/util`,
+all of which use Linux-only syscalls (`syscall.Fallocate`, `Stat_t.Ctim`, the
+`NFS_/CIFS_/SMB*_SUPER_MAGIC` constants from `x/sys/unix`). The plugin runs on the
+weft agent, which is Linux, so this is by design rather than a gap.
 
 ## Module layout
 
