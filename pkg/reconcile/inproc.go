@@ -110,6 +110,17 @@ func (s *InProcessSpawner) SpawnReplica(ctx context.Context, req ReplicaRequest)
 		return "", fmt.Errorf("replica.Create(size=%d): %w", req.SizeBytes, err)
 	}
 
+	// CoW-clone bootstrap : populate the chain from the parent's named
+	// snapshot before the engine attaches. Empty SourceSnapshot is the
+	// non-clone path (fresh empty volume) and we skip straight to gRPC
+	// startup. bootstrapFromSnapshot leaves rs in the same Closed state
+	// the empty path does, so the rest of SpawnReplica is path-agnostic.
+	if req.SourceSnapshot != "" {
+		if err := bootstrapFromSnapshot(ctx, rs, req); err != nil {
+			return "", err
+		}
+	}
+
 	// Upstream Longhorn replicas advertise a base port and reserve TWO more:
 	// base = gRPC control, base+1 = dataconn, base+2 = sync — pkg/util.
 	// ParseAddresses() derives the trio from the base on the engine side.

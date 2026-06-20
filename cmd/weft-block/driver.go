@@ -456,6 +456,38 @@ func (v *volumeDriver) RevertSnapshot(ctx context.Context, volumeUUID, snapshotN
 	return nil
 }
 
+// ----- Clone (CoW from snapshot) -----
+
+// CreateFromSnapshot is the V0.5.1 high-level CoW-clone RPC. Allocates a new
+// Volume + Replica records keyed to (newVolumeUUID, newName), each tagged
+// with the parent's (VolumeUUID, SnapshotName) so the per-host reconcile
+// loops can bootstrap the new replica chain from the parent's snapshot
+// instead of from an empty head — the longhorn pattern : the new replica's
+// initial disk is a CoW pointer at the source snapshot, not a byte copy.
+//
+// Returns the new Volume so the caller can persist its UUID and (optionally)
+// AttachVolume it. Idempotent : a retry with the same newVolumeUUID returns
+// the already-persisted Volume rather than re-allocating replicas.
+//
+// V0.5.1 scope : control-plane records only. The actual per-replica
+// bootstrap-from-snapshot byte plumbing — which the longhorn data plane
+// already implements via CompareSnapshot/ReadSnapshot in pkg/replica — gets
+// wired into the reconcile-loop's SpawnReplica path in V0.6 ; until then a
+// cloned volume's replicas come up empty and the operator can populate them
+// via RestoreBackup. The control-plane records are forward-compatible :
+// SourceVolumeUUID + SourceSnapshot are durably persisted so the V0.6
+// upgrade is in-place.
+func (v *volumeDriver) CreateFromSnapshot(ctx context.Context, parentVolumeUUID, snapshotName, newVolumeUUID, newName string) (control.Volume, error) {
+	v.mu.Lock()
+	defer v.mu.Unlock()
+	return control.CreateFromSnapshot(ctx, v.store, v.hostCandidates(), control.CloneRequest{
+		ParentVolumeUUID: parentVolumeUUID,
+		SnapshotName:     snapshotName,
+		NewVolumeUUID:    newVolumeUUID,
+		NewVolumeName:    newName,
+	}, time.Now)
+}
+
 // ----- Backups -----
 //
 // Backups ship a snapshot's contents to a Target abstracted behind
