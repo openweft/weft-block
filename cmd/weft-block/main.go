@@ -76,7 +76,7 @@ func main() {
 	// replicas, engines) and the reconcile loop turns it into running
 	// processes. WEFT_BLOCK_ETCD_ENDPOINTS selects the etcd-backed store
 	// (production / multi-host); empty → in-memory (single-host dev).
-	store, closeStore, err := buildStore(os.Getenv(EnvEtcdEndpoints))
+	store, closeStore, etcdCli, err := buildStoreWithClient(os.Getenv(EnvEtcdEndpoints))
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "weft-block: %v\n", err)
 		os.Exit(1)
@@ -96,6 +96,15 @@ func main() {
 	}
 
 	loop := reconcile.New(hi.uuid, store, spawner)
+	// Re-replication on host failure : when etcd is the store, the
+	// same etcd cluster carries weft-agent's host-liveness leases at
+	// /weft/coord/hosts/. Plumb that into the loop's rereplicate
+	// sweep so orphaned replicas of dead hosts get faulted +
+	// rescheduled automatically. MemStore deployments skip this
+	// (etcdCli nil) ; rereplicate sweep stays disabled.
+	if etcdCli != nil {
+		loop.Liveness = reconcile.NewEtcdLiveness(etcdCli)
+	}
 	loop.Start(context.Background())
 	defer loop.Stop()
 
@@ -148,11 +157,15 @@ func main() {
 	})
 }
 
-// buildStore picks the VolumeStore based on env. Returns a closer the caller
-// defers (no-op for MemStore; client.Close for etcd).
-func buildStore(endpoints string) (control.VolumeStore, func(), error) {
+// buildStoreWithClient picks the VolumeStore based on env. Returns
+// the store, a closer the caller defers (no-op for MemStore ;
+// client.Close for etcd), AND the etcd client itself when one was
+// dialled — nil for the MemStore path. The caller plumbs the
+// client into the reconcile Loop's LivenessProvider so the
+// rereplicate sweep can scan /weft/coord/hosts/.
+func buildStoreWithClient(endpoints string) (control.VolumeStore, func(), *clientv3.Client, error) {
 	if strings.TrimSpace(endpoints) == "" {
-		return control.NewMemStore(), func() {}, nil
+		return control.NewMemStore(), func() {}, nil, nil
 	}
 	parts := strings.Split(endpoints, ",")
 	for i, p := range parts {
@@ -163,7 +176,7 @@ func buildStore(endpoints string) (control.VolumeStore, func(), error) {
 		DialTimeout: 5 * time.Second,
 	})
 	if err != nil {
-		return nil, nil, fmt.Errorf("etcd dial %v: %w", parts, err)
+		return nil, nil, nil, fmt.Errorf("etcd dial %v: %w", parts, err)
 	}
-	return controletcd.New(cli), func() { _ = cli.Close() }, nil
+	return controletcd.New(cli), func() { _ = cli.Close() }, cli, nil
 }

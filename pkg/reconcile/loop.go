@@ -23,17 +23,39 @@ import (
 // store isn't hammered. Override via Loop.Interval.
 const DefaultPollInterval = 1 * time.Second
 
+// LivenessProvider returns the cluster's current host-liveness
+// view + the placement pool the policy considers when scheduling
+// replacement replicas. Plumbed through the Loop because each
+// concrete agent fetches it from a different source : the
+// production binding hits the same etcd cluster /weft/coord/hosts/
+// prefix that weft-agent uses for its own liveness leases ; tests
+// inject a literal value.
+//
+// Nil = "skip re-replication entirely". The reconcile tick still
+// runs for the local host's replicas + engines ; only the cross-
+// host re-replication sweep is disabled. Useful for the embedded
+// dev path where there's no real liveness store yet.
+type LivenessProvider func(ctx context.Context) (control.HostLiveness, error)
+
 // Loop runs the reconciliation tick for one host.
 type Loop struct {
 	HostUUID string
 	Store    control.VolumeStore
 	Spawner  Spawner
 	Interval time.Duration
+	// Liveness, when non-nil, feeds the per-tick re-replication
+	// sweep that fixes orphaned replicas left behind by a dead
+	// host. The sweep runs every RereplicateEvery ticks (so we
+	// don't hammer the store on every poll). Owner-election is
+	// per-volume + deterministic ; safe to run on every agent.
+	Liveness         LivenessProvider
+	RereplicateEvery int // 0 → default 5 (every ~5s with 1s interval)
 
-	mu     sync.Mutex
-	known  map[string]string // replicaUUID/engineUUID -> last-seen state
-	cancel context.CancelFunc
-	done   chan struct{}
+	mu        sync.Mutex
+	known     map[string]string // replicaUUID/engineUUID -> last-seen state
+	tickCount int               // bumped each tick ; gates the rereplicate sweep
+	cancel    context.CancelFunc
+	done      chan struct{}
 }
 
 // New builds a Loop with the default poll interval.
@@ -90,6 +112,11 @@ func (l *Loop) Stop() {
 // tick is one reconciliation pass: scan all volumes, then for each volume
 // process its replicas (HostUUID==l.HostUUID) and its engine (HostUUID==
 // l.HostUUID), spawning / stopping as needed.
+//
+// Every RereplicateEvery ticks the tick ALSO runs the cluster-wide
+// re-replication sweep that fixes orphaned replicas from dead hosts.
+// Owner-election (in control.RereplicateOrphans) ensures only one
+// agent acts per volume, so all hosts can run this safely.
 func (l *Loop) tick(ctx context.Context) {
 	vols, err := l.Store.ListVolumes(ctx)
 	if err != nil {
@@ -98,6 +125,44 @@ func (l *Loop) tick(ctx context.Context) {
 	}
 	for _, v := range vols {
 		l.reconcileVolume(ctx, v)
+	}
+	l.maybeRereplicate(ctx)
+}
+
+// maybeRereplicate runs the cross-host re-replication sweep at the
+// configured cadence. Pure side-effect ; failures are logged + the
+// next tick retries.
+func (l *Loop) maybeRereplicate(ctx context.Context) {
+	if l.Liveness == nil {
+		return
+	}
+	l.mu.Lock()
+	l.tickCount++
+	cnt := l.tickCount
+	l.mu.Unlock()
+	every := l.RereplicateEvery
+	if every <= 0 {
+		every = 5
+	}
+	if cnt%every != 0 {
+		return
+	}
+	live, err := l.Liveness(ctx)
+	if err != nil {
+		logrus.WithError(err).Debug("reconcile: liveness fetch")
+		return
+	}
+	stats, err := control.RereplicateOrphans(ctx, l.Store, live, l.HostUUID, logrus.StandardLogger())
+	if err != nil {
+		logrus.WithError(err).Warn("reconcile: rereplicate sweep")
+		return
+	}
+	if stats.OrphansFaulted > 0 || stats.ReplicasScheduled > 0 || stats.VolumesShortNoHost > 0 {
+		logrus.WithFields(logrus.Fields{
+			"orphans_faulted":    stats.OrphansFaulted,
+			"replicas_scheduled": stats.ReplicasScheduled,
+			"volumes_short":      stats.VolumesShortNoHost,
+		}).Info("reconcile: rereplicate sweep")
 	}
 }
 
