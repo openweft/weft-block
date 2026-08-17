@@ -19,3 +19,6 @@ integration/MANIFEST
 .idea/
 *.iml
 *.ipr
+
+# Build output (cmd/weft-block); build it, do not commit it.
+/weft-block
