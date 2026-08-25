@@ -47,10 +47,10 @@ func newSnapshotReaderServer(volumeName string, s *replica.Server) *snapshotRead
 
 // Read streams the snapshot's bytes from offset 0 in fixed-size chunks.
 // Implementation contract :
-//   * If req.SnapshotName isn't in the chain, return NotFound-shaped error.
-//   * Stream chunks ; last chunk carries Last=true even if it's a full
+//   - If req.SnapshotName isn't in the chain, return NotFound-shaped error.
+//   - Stream chunks ; last chunk carries Last=true even if it's a full
 //     chunk's worth, so clients can rely on the flag.
-//   * Stream-end (natural OR ctx cancel) closes the underlying replica
+//   - Stream-end (natural OR ctx cancel) closes the underlying replica
 //     handle to release its FDs.
 func (sr *snapshotReaderServer) Read(req *weftsnap.ReadRequest, stream weftsnap.SnapshotReader_ReadServer) error {
 	if req.SnapshotName == "" {

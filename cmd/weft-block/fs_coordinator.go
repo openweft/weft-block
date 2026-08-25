@@ -95,8 +95,8 @@ func (n NoopFSCoordinator) Thaw(_ context.Context, vmUUID string) error { return
 //
 // Subjects (mirror project_guest_dynamic_config.md's per-VM addressing) :
 //
-//   weft.vm.<uuid>.fs.freeze   — payload: {"timeout_ms": ...}, reply: {"frozen": true/false, "err": "..."}
-//   weft.vm.<uuid>.fs.thaw     — payload: {}, reply: {"thawed": true, "err": "..."}
+//	weft.vm.<uuid>.fs.freeze   — payload: {"timeout_ms": ...}, reply: {"frozen": true/false, "err": "..."}
+//	weft.vm.<uuid>.fs.thaw     — payload: {}, reply: {"thawed": true, "err": "..."}
 //
 // FreezeTimeout bounds the request — if the guest doesn't ack, we
 // FAIL the snapshot rather than silently skipping the freeze (the

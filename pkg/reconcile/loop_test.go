@@ -27,7 +27,12 @@ func TestLoop_ReplicaThenEngine(t *testing.T) {
 		t.Fatal(err)
 	}
 	// one replica on the local host, one elsewhere
-	must := func(err error) { t.Helper(); if err != nil { t.Fatal(err) } }
+	must := func(err error) {
+		t.Helper()
+		if err != nil {
+			t.Fatal(err)
+		}
+	}
 	must(store.PutReplica(ctx, control.Replica{
 		UUID: "r-local", VolumeUUID: volumeUUID, HostUUID: localHost,
 		State: control.ReplicaStatePending,
@@ -83,7 +88,12 @@ func TestLoop_DeletingTriggersStop(t *testing.T) {
 	store := control.NewMemStore()
 
 	const localHost = "host-A"
-	must := func(err error) { t.Helper(); if err != nil { t.Fatal(err) } }
+	must := func(err error) {
+		t.Helper()
+		if err != nil {
+			t.Fatal(err)
+		}
+	}
 
 	must(store.PutVolume(ctx, control.Volume{UUID: "v", Name: "n", SizeBytes: 4 << 20, ReplicaCount: 1}))
 	must(store.PutReplica(ctx, control.Replica{UUID: "r", VolumeUUID: "v", HostUUID: localHost, State: control.ReplicaStateDeleting}))

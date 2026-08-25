@@ -8,7 +8,7 @@
 //   - types.go      : Volume, Replica, Engine records (~ Longhorn CRDs)
 //   - placement.go  : deterministic N-replica spread across DCs
 //   - store.go      : VolumeStore interface + in-memory impl
-//                     (etcd binding lives a slice further)
+//     (etcd binding lives a slice further)
 //
 // The package depends only on the standard library — production binds
 // run against the embedded etcd via a different VolumeStore impl, and

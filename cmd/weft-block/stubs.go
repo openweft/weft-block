@@ -32,11 +32,15 @@ func (stubHypervisor) DeleteVM(context.Context, string) error         { return u
 func (stubHypervisor) AttachDisk(context.Context, string, drivers.DiskSpec) error {
 	return unsupported("AttachDisk")
 }
-func (stubHypervisor) DetachDisk(context.Context, string, string) error { return unsupported("DetachDisk") }
+func (stubHypervisor) DetachDisk(context.Context, string, string) error {
+	return unsupported("DetachDisk")
+}
 func (stubHypervisor) AttachNIC(context.Context, string, drivers.NICHandle) error {
 	return unsupported("AttachNIC")
 }
-func (stubHypervisor) DetachNIC(context.Context, string, string) error { return unsupported("DetachNIC") }
+func (stubHypervisor) DetachNIC(context.Context, string, string) error {
+	return unsupported("DetachNIC")
+}
 
 // ----- Network stub -----
 
@@ -48,7 +52,9 @@ func (s stubNetwork) HostInfo(context.Context) (drivers.HostInfo, error) {
 func (stubNetwork) EnsureNetwork(context.Context, drivers.NetworkSpec) error {
 	return unsupported("EnsureNetwork")
 }
-func (stubNetwork) DestroyNetwork(context.Context, string) error { return unsupported("DestroyNetwork") }
+func (stubNetwork) DestroyNetwork(context.Context, string) error {
+	return unsupported("DestroyNetwork")
+}
 func (stubNetwork) AttachPort(context.Context, drivers.PortSpec) (drivers.NICHandle, error) {
 	return drivers.NICHandle{}, unsupported("AttachPort")
 }
