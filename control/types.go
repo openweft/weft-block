@@ -33,13 +33,13 @@ const (
 // Volume is the cluster-wide record of one block volume — what would be a
 // Longhorn `Volume` CRD. Persisted in etcd; reconciled by the agents.
 type Volume struct {
-	UUID        string      // stable identity (matches drivers.VolumeSpec.UUID)
-	ProjectUUID string      // tenant
-	Name        string
-	SizeBytes   int64       // exact volume size; SizeGiB on the wire converts here
-	ReplicaCount int        // desired replica count (1 single-node, 3 default 3-DC)
-	State       VolumeState
-	AttachedTo  string      // host UUID currently running the engine, "" when detached
+	UUID         string // stable identity (matches drivers.VolumeSpec.UUID)
+	ProjectUUID  string // tenant
+	Name         string
+	SizeBytes    int64 // exact volume size; SizeGiB on the wire converts here
+	ReplicaCount int   // desired replica count (1 single-node, 3 default 3-DC)
+	State        VolumeState
+	AttachedTo   string // host UUID currently running the engine, "" when detached
 	// SourceVolumeUUID + SourceSnapshot mark this Volume as a CoW clone of
 	// another Volume's snapshot. Set by CreateFromSnapshot ; empty for
 	// freshly-provisioned volumes. The reconcile loop on each placed-on host
@@ -56,11 +56,11 @@ type Volume struct {
 // `Replica` CRD. The agent on HostUUID owns spawning/probing it. Address is
 // the overlay-reachable endpoint the engine dials (host:port).
 type Replica struct {
-	UUID       string       // stable per-replica id
-	VolumeUUID string       // backref
-	HostUUID   string       // pinned to this host
-	DC         string       // for AZ-aware placement decisions + later moves
-	Address    string       // overlay endpoint (host:port); set by the agent after spawn
+	UUID       string // stable per-replica id
+	VolumeUUID string // backref
+	HostUUID   string // pinned to this host
+	DC         string // for AZ-aware placement decisions + later moves
+	Address    string // overlay endpoint (host:port); set by the agent after spawn
 	State      ReplicaState
 	// SourceVolumeUUID + SourceSnapshot, when non-empty, instruct the spawner
 	// to bootstrap this replica's chain from the named snapshot on the parent
@@ -82,7 +82,7 @@ type Engine struct {
 	UUID         string
 	VolumeUUID   string
 	HostUUID     string
-	FrontendPath string // e.g. "/dev/nbd0" — what AttachVolume returns to the hypervisor
+	FrontendPath string       // e.g. "/dev/nbd0" — what AttachVolume returns to the hypervisor
 	State        ReplicaState // reused: Pending/Running/Faulted/Deleting
 	CreatedAt    time.Time
 	UpdatedAt    time.Time

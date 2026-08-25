@@ -1,0 +1,82 @@
+name: CI
+
+# This repository had Go code, 24 test files, and no CI lane at all -- its only
+# workflow is a workflow_dispatch OCI publish, so nothing ever built it or ran
+# its tests.
+#
+# The matrix is linux-only because that is what actually builds: the tree
+# depends on rancher/go-fibmap and longhorn/sparse-tools, which need
+# syscall.Fallocate and Stat_t.Ctim. darwin, the *BSDs and windows all fail to
+# compile, so listing them would be listing a wish. Measured pair by pair
+# before this file was written.
+#
+# TMPDIR is pinned to the runner's temp directory on purpose. pkg/replica
+# queries file extents (FIEMAP) on its sparse files, which tmpfs does not
+# support: with TMPDIR on tmpfs, 25 of its 27 tests fail with
+# "file extent is unsupported: operation not supported", and with TMPDIR on an
+# ext4 path all 27 pass. Naming the directory keeps the lane independent of
+# whatever the runner image mounts on /tmp.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: go.mod
+          cache: true
+      - name: gofmt
+        run: |
+          unformatted=$(gofmt -l .)
+          if [ -n "$unformatted" ]; then
+            echo "::error::not gofmt-clean:"
+            echo "$unformatted"
+            exit 1
+          fi
+      - run: go vet ./...
+      - name: go test
+        env:
+          TMPDIR: ${{ runner.temp }}
+        run: go test -count=1 ./...
+
+  race:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: go.mod
+          cache: true
+      - name: go test -race
+        env:
+          TMPDIR: ${{ runner.temp }}
+        run: go test -race -count=1 ./...
+
+  cross-build:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        goos: [linux]
+        goarch: [amd64, arm64]
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: go.mod
+          cache: true
+      - name: cross-build ${{ matrix.goos }}/${{ matrix.goarch }}
+        env:
+          GOOS: ${{ matrix.goos }}
+          GOARCH: ${{ matrix.goarch }}
+        run: go build ./...

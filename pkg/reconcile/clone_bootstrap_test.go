@@ -28,9 +28,9 @@ import (
 // sends it. Like LogSpawner it doesn't actually run anything ; it just lets
 // tests assert the loop populated the request the way they expect.
 type recordingSpawner struct {
-	mu     sync.Mutex
-	calls  []ReplicaRequest
-	addr   string  // deterministic Address to return so the replica reaches Running
+	mu    sync.Mutex
+	calls []ReplicaRequest
+	addr  string // deterministic Address to return so the replica reaches Running
 }
 
 func newRecordingSpawner(addr string) *recordingSpawner {
@@ -71,7 +71,12 @@ func TestLoop_CloneBootstrap_PropagatesParentAddresses(t *testing.T) {
 	const parentUUID = "parent-vol"
 	const childUUID = "child-vol"
 
-	must := func(err error) { t.Helper(); if err != nil { t.Fatal(err) } }
+	must := func(err error) {
+		t.Helper()
+		if err != nil {
+			t.Fatal(err)
+		}
+	}
 
 	// Parent volume + one Running replica on host-B with a known Address.
 	must(store.PutVolume(ctx, control.Volume{
@@ -151,7 +156,12 @@ func TestLoop_CloneBootstrap_DefersUntilParentRunning(t *testing.T) {
 	const parentUUID = "parent-vol"
 	const childUUID = "child-vol"
 
-	must := func(err error) { t.Helper(); if err != nil { t.Fatal(err) } }
+	must := func(err error) {
+		t.Helper()
+		if err != nil {
+			t.Fatal(err)
+		}
+	}
 	must(store.PutVolume(ctx, control.Volume{UUID: parentUUID, Name: "parent", SizeBytes: 4 << 20, ReplicaCount: 1, State: control.VolumeStateProvisioning}))
 	// Parent replica is still Pending — no Address yet.
 	must(store.PutReplica(ctx, control.Replica{
@@ -215,7 +225,12 @@ func TestLoop_CloneBootstrap_NoProvenance_SkipsLookup(t *testing.T) {
 	ctx := context.Background()
 	store := control.NewMemStore()
 	const localHost = "host-A"
-	must := func(err error) { t.Helper(); if err != nil { t.Fatal(err) } }
+	must := func(err error) {
+		t.Helper()
+		if err != nil {
+			t.Fatal(err)
+		}
+	}
 	must(store.PutVolume(ctx, control.Volume{UUID: "v", Name: "v", SizeBytes: 4 << 20, ReplicaCount: 1}))
 	must(store.PutReplica(ctx, control.Replica{UUID: "r", VolumeUUID: "v", HostUUID: localHost, State: control.ReplicaStatePending}))
 

@@ -158,8 +158,8 @@ type SnapshotInfo struct {
 	Parent      string
 	Removed     bool
 	UserCreated bool
-	Created     string            // RFC3339 timestamp string as stored on disk
-	SizeBytes   int64             // delta on disk
+	Created     string // RFC3339 timestamp string as stored on disk
+	SizeBytes   int64  // delta on disk
 	Labels      map[string]string
 }
 
@@ -179,12 +179,12 @@ type SnapshotInfo struct {
 // so the Spawner abstraction stays self-contained — LogSpawner and the
 // non-Linux stub can no-op on them without growing extra surface.
 type ReplicaRequest struct {
-	ReplicaUUID  string
-	VolumeUUID   string
-	VolumeName   string
-	SizeBytes    int64
-	SectorSize   int64
-	StateDir     string // <hostStateDir>/replicas/<replicaUUID>
+	ReplicaUUID string
+	VolumeUUID  string
+	VolumeName  string
+	SizeBytes   int64
+	SectorSize  int64
+	StateDir    string // <hostStateDir>/replicas/<replicaUUID>
 
 	// Bootstrap-from-snapshot fields. Non-empty SourceSnapshot triggers the
 	// CoW-clone bootstrap path on the SpawnReplica side.

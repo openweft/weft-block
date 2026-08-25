@@ -35,7 +35,7 @@ func NewInProcessSpawner(hostAddr, stateDir string) *InProcessSpawner {
 func (*InProcessSpawner) SpawnReplica(context.Context, ReplicaRequest) (string, error) {
 	return "", errLinuxOnly
 }
-func (*InProcessSpawner) StopReplica(context.Context, string) error          { return errLinuxOnly }
+func (*InProcessSpawner) StopReplica(context.Context, string) error { return errLinuxOnly }
 func (*InProcessSpawner) SpawnEngine(context.Context, EngineRequest) (string, error) {
 	return "", errLinuxOnly
 }

@@ -61,11 +61,11 @@ func (h HostLiveness) liveSet() map[string]struct{} {
 // RereplicateStats summarises what one Sweep call did. Caller logs
 // it ; metrics surface it to Prometheus.
 type RereplicateStats struct {
-	VolumesScanned    int
-	OrphansFaulted    int
-	ReplicasScheduled int
+	VolumesScanned         int
+	OrphansFaulted         int
+	ReplicasScheduled      int
 	VolumesSkippedNotOwner int // we weren't the lexically-lowest survivor
-	VolumesShortNoHost int  // no placement candidate available
+	VolumesShortNoHost     int // no placement candidate available
 }
 
 // RereplicateOrphans is the entry point. Pure function over the

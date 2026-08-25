@@ -37,7 +37,7 @@ import (
 // Surfaced as struct fields would be the next refinement; for now they're
 // the same hard-coded values app/cmd/replica.go + controller.go use.
 const (
-	defaultSnapshotMaxCount  = 250
+	defaultSnapshotMaxCount   = 250
 	defaultEngineReplicaShort = 8 * time.Second
 	defaultEngineReplicaLong  = 16 * time.Second
 	defaultFileSyncTimeoutSec = 5
@@ -197,8 +197,8 @@ func (s *InProcessSpawner) SpawnEngine(_ context.Context, req EngineRequest) (st
 	fe := nbd.New()
 
 	cc := controller.NewController(req.VolumeName, factory, fe,
-		false /* isUpgrade */, false /* disableRevCounter */, false /* salvageRequested */,
-		false /* unmapMarkSnapChainRemoved */, 0 /* iscsiTargetRequestTimeout (NBD has none) */,
+		false /* isUpgrade */, false /* disableRevCounter */, false, /* salvageRequested */
+		false /* unmapMarkSnapChainRemoved */, 0, /* iscsiTargetRequestTimeout (NBD has none) */
 		defaultEngineReplicaShort, defaultEngineReplicaLong,
 		types.DataServerProtocolTCP, defaultFileSyncTimeoutSec,
 		defaultSnapshotMaxCount, 0, defaultRebuildConcurrency)

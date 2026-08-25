@@ -527,11 +527,11 @@ type backupMeta struct {
 	// equal to SizeBytes ; for encrypted ones it's the pre-AEAD count.
 	// For incremental backups it's the SUM of all range sizes (NOT the
 	// volume's full size — the parent backup covered the rest).
-	PlaintextBytes  int64                        `json:"plaintext_bytes,omitempty"`
-	SHA256          string                       `json:"sha256"`
-	CreatedAtUnixNs int64                        `json:"created_at_unix_ns"`
-	Labels          map[string]string            `json:"labels,omitempty"`
-	ParentURL       string                       `json:"parent_url,omitempty"`
+	PlaintextBytes  int64                         `json:"plaintext_bytes,omitempty"`
+	SHA256          string                        `json:"sha256"`
+	CreatedAtUnixNs int64                         `json:"created_at_unix_ns"`
+	Labels          map[string]string             `json:"labels,omitempty"`
+	ParentURL       string                        `json:"parent_url,omitempty"`
 	Encryption      *drivers.BackupEncryptionInfo `json:"encryption,omitempty"`
 	// Ranges, when non-empty, marks this as an incremental backup whose
 	// body only carries the listed (offset, size) windows. The plaintext
@@ -702,8 +702,8 @@ func (v *volumeDriver) CreateBackup(ctx context.Context, spec drivers.BackupSpec
 		}
 	}
 	var (
-		total      int64
-		streamErr  error
+		total     int64
+		streamErr error
 	)
 	if incremental {
 		total, streamErr = h.StreamSnapshotRanges(spec.SnapshotName, streamBlockSize, ranges, targetSink)
@@ -901,8 +901,8 @@ func (v *volumeDriver) restoreOneBackup(ctx context.Context, h reconcile.EngineH
 	}
 	const streamBlockSize = 4 * 1024 * 1024
 	var (
-		written    int64
-		importErr  error
+		written   int64
+		importErr error
 	)
 	if len(meta.Ranges) > 0 {
 		// Incremental backup : write each chunk at the matching volume
@@ -1014,7 +1014,6 @@ func (v *volumeDriver) RestoreBackup(ctx context.Context, backupURL string, spec
 	}
 	return nil
 }
-
 
 // teeByteReader satisfies SnapshotByteReader by reading from a primary
 // source and forwarding every chunk to a secondary writer (for SHA256
