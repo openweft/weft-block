@@ -1,0 +1,40 @@
+name: unit
+
+# `go test` on this repository's own packages.
+#
+# Until now CI here only built and published: block-oci.yml ci.yml ran on
+# every push, and no workflow ever ran a test. 12 packages have them.
+#
+# A suite nobody runs cannot report that it has gone stale, so the staleness
+# accumulates in silence. On openweft/weft, switching the same thing on found
+# two tests that could not pass on Linux at all -- one asserting the host's own
+# hypervisor, one racing for a TCP port -- both waiting since the packages were
+# written.
+#
+# -short, so anything gated behind testing.Short() stays out of this lane.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    name: go test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-go@v7
+        with:
+          go-version-file: go.mod
+          cache: true
+      - name: build
+        run: go build ./...
+      - name: vet
+        run: go vet ./...
+      - name: test
+        run: go test -short -timeout 20m ./...
