@@ -1,34 +1,6 @@
 module github.com/openweft/weft-block
 
-go 1.26.4
-
-require (
-	github.com/cockroachdb/errors v1.13.0
-	github.com/docker/go-units v0.5.0
-	github.com/gofrs/flock v0.13.0
-	github.com/google/uuid v1.6.0
-	github.com/gorilla/handlers v1.5.2
-	github.com/gorilla/mux v1.8.1
-	github.com/longhorn/backupstore v0.0.0-20260525102750-1ed7dde50b68
-	github.com/longhorn/go-common-libs v0.0.0-20260525102658-c0739cd3e2c2
-	github.com/longhorn/go-iscsi-helper v0.0.0-20260331100542-4c4c6f91525b
-	github.com/longhorn/sparse-tools v0.0.0-20260423074222-280e61de741a
-	github.com/longhorn/types v0.0.0-20260522011813-8f1780fad833
-	github.com/moby/sys/reexec v0.1.0
-	github.com/rancher/go-fibmap v0.0.0-20160418233256-5fc9f8c1ed47
-	github.com/rancher/go-rancher v0.1.1-0.20190307222549-9756097e5e4c
-	github.com/sirupsen/logrus v1.9.4
-	github.com/urfave/cli v1.22.17
-	go.uber.org/multierr v1.11.0
-	golang.org/x/sys v0.45.0
-	google.golang.org/grpc v1.81.1
-	google.golang.org/protobuf v1.36.12-0.20260120151049-f2248ac996af
-	gopkg.in/check.v1 v1.0.0-20201130134442-10cb98267c6c
-	gopkg.in/cheggaaa/pb.v2 v2.0.7
-	k8s.io/apimachinery v0.36.1
-	k8s.io/client-go v0.36.1
-	k8s.io/mount-utils v0.36.1
-)
+go 1.27.1
 
 require (
 	github.com/Azure/azure-sdk-for-go/sdk/azcore v1.16.0 // indirect
@@ -131,9 +103,9 @@ require (
 	go.uber.org/zap v1.27.0 // indirect
 	go.yaml.in/yaml/v2 v2.4.3 // indirect
 	golang.org/x/exp v0.0.0-20260508232706-74f9aab9d74a // indirect
-	golang.org/x/net v0.54.0 // indirect
-	golang.org/x/sync v0.20.0 // indirect
-	golang.org/x/text v0.37.0 // indirect
+	golang.org/x/net v0.59.0 // indirect
+	golang.org/x/sync v0.23.0 // indirect
+	golang.org/x/text v0.42.0 // indirect
 	golang.org/x/time v0.14.0 // indirect
 	google.golang.org/genproto/googleapis/api v0.0.0-20260526163538-3dc84a4a5aaa // indirect
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20260523011958-0a33c5d7ca68 // indirect
@@ -155,7 +127,19 @@ require (
 	github.com/aws/aws-sdk-go-v2/config v1.32.17
 	github.com/aws/aws-sdk-go-v2/feature/s3/manager v1.19.8
 	github.com/aws/aws-sdk-go-v2/service/s3 v1.101.0
+	github.com/cockroachdb/errors v1.13.0
+	github.com/docker/go-units v0.5.0
 	github.com/go-diskimages/qcow2 v0.1.0
+	github.com/gofrs/flock v0.13.0
+	github.com/google/uuid v1.6.0
+	github.com/gorilla/handlers v1.5.2
+	github.com/gorilla/mux v1.8.1
+	github.com/longhorn/backupstore v0.0.0-20260525102750-1ed7dde50b68
+	github.com/longhorn/go-common-libs v0.0.0-20260525102658-c0739cd3e2c2
+	github.com/longhorn/go-iscsi-helper v0.0.0-20260331100542-4c4c6f91525b
+	github.com/longhorn/sparse-tools v0.0.0-20260423074222-280e61de741a
+	github.com/longhorn/types v0.0.0-20260522011813-8f1780fad833
+	github.com/moby/sys/reexec v0.1.0
 	github.com/nats-io/nats.go v1.52.0
 	github.com/opencontainers/go-digest v1.0.0
 	github.com/opencontainers/image-spec v1.1.1
@@ -163,8 +147,21 @@ require (
 	github.com/openweft/weft-drivers v0.2.0
 	github.com/openweft/weft-nbd v0.3.3
 	github.com/pkg/sftp v1.13.10
+	github.com/rancher/go-fibmap v0.0.0-20160418233256-5fc9f8c1ed47
+	github.com/rancher/go-rancher v0.1.1-0.20190307222549-9756097e5e4c
+	github.com/sirupsen/logrus v1.9.4
+	github.com/urfave/cli v1.22.17
 	go.etcd.io/etcd/client/v3 v3.6.11
 	go.etcd.io/etcd/server/v3 v3.6.11
-	golang.org/x/crypto v0.52.0
+	go.uber.org/multierr v1.11.0
+	golang.org/x/crypto v0.57.0
+	golang.org/x/sys v0.48.0
+	google.golang.org/grpc v1.81.1
+	google.golang.org/protobuf v1.36.12-0.20260120151049-f2248ac996af
+	gopkg.in/check.v1 v1.0.0-20201130134442-10cb98267c6c
+	gopkg.in/cheggaaa/pb.v2 v2.0.7
+	k8s.io/apimachinery v0.36.1
+	k8s.io/client-go v0.36.1
+	k8s.io/mount-utils v0.36.1
 	oras.land/oras-go/v2 v2.6.0
 )
