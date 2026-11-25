@@ -8,10 +8,12 @@ package backuptarget
 //
 //   1. URL-embedded password : "sftp://user:pass@host:port/path" (NOT
 //      recommended — leaks into etcd / logs).
-//   2. $WEFT_SFTP_PASSWORD for password auth (per-process secret).
+//   2. $WEFT_SFTP_PASSWORD_FROM (a secretsource reference) for password
+//      auth ; plaintext $WEFT_SFTP_PASSWORD is deprecated.
 //   3. $SSH_AUTH_SOCK for agent-mediated key auth (preferred).
 //   4. $WEFT_SFTP_KEY_FILE for an explicit private-key path
-//      (with optional $WEFT_SFTP_KEY_PASSPHRASE for encrypted keys).
+//      (with optional $WEFT_SFTP_KEY_PASSPHRASE_FROM for encrypted keys ;
+//      plaintext $WEFT_SFTP_KEY_PASSPHRASE is deprecated).
 //
 // Host key verification :
 //
@@ -35,6 +37,8 @@ import (
 	"golang.org/x/crypto/ssh"
 	"golang.org/x/crypto/ssh/agent"
 	"golang.org/x/crypto/ssh/knownhosts"
+
+	"github.com/openweft/weft-block/internal/secretenv"
 )
 
 // sftpTarget binds one SFTP endpoint. Each call opens a fresh SSH session ;
@@ -133,8 +137,14 @@ func (t *sftpTarget) collectAuthMethods() ([]ssh.AuthMethod, error) {
 		methods = append(methods, ssh.Password(t.password))
 	}
 	// 2. Env password.
-	if pwd := os.Getenv(envSFTPPassword); pwd != "" {
-		methods = append(methods, ssh.Password(pwd))
+	// WEFT_SFTP_PASSWORD_FROM takes a secretsource reference ; the plaintext
+	// variable is deprecated.
+	pwd, err := secretenv.Load(context.Background(), envSFTPPassword)
+	if err != nil && !errors.Is(err, secretenv.ErrUnset) {
+		return nil, fmt.Errorf("sftp: %w", err)
+	}
+	if len(pwd) > 0 {
+		methods = append(methods, ssh.Password(string(pwd)))
 	}
 	// 3. SSH agent (preferred).
 	if sock := os.Getenv(envSSHAuthSock); sock != "" {
@@ -150,8 +160,13 @@ func (t *sftpTarget) collectAuthMethods() ([]ssh.AuthMethod, error) {
 			return nil, fmt.Errorf("read key %s: %w", kf, err)
 		}
 		var signer ssh.Signer
-		if pp := os.Getenv(envSFTPKeyPassphrase); pp != "" {
-			signer, err = ssh.ParsePrivateKeyWithPassphrase(raw, []byte(pp))
+		pp, perr := secretenv.Load(context.Background(), envSFTPKeyPassphrase)
+		if perr != nil && !errors.Is(perr, secretenv.ErrUnset) {
+			return nil, fmt.Errorf("sftp: %w", perr)
+		}
+		if len(pp) > 0 {
+			signer, err = ssh.ParsePrivateKeyWithPassphrase(raw, pp)
+			clear(pp)
 		} else {
 			signer, err = ssh.ParsePrivateKey(raw)
 		}

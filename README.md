@@ -65,6 +65,28 @@ all of which use Linux-only syscalls (`syscall.Fallocate`, `Stat_t.Ctim`, the
 `NFS_/CIFS_/SMB*_SUPER_MAGIC` constants from `x/sys/unix`). The plugin runs on the
 weft agent, which is Linux, so this is by design rather than a gap.
 
+## Backup secrets
+
+The daemon never takes a secret as a plaintext environment variable (visible in
+`/proc/<pid>/environ`, inherited by children). Give each one by reference, a
+[`go-authn/secretsource`](https://github.com/go-authn/secretsource) string
+(`systemd-creds:NAME`, `keychain:…`, `keepassxc:…`, `file:PATH` which must be mode 0600):
+
+| Secret                         | Reference variable                  | Deprecated plaintext variable |
+|--------------------------------|-------------------------------------|-------------------------------|
+| Backup encryption passphrase   | `WEFT_BACKUP_PASSPHRASE_FROM`       | `WEFT_BACKUP_PASSPHRASE`      |
+| SFTP target password           | `WEFT_SFTP_PASSWORD_FROM`           | `WEFT_SFTP_PASSWORD`          |
+| SFTP private-key passphrase    | `WEFT_SFTP_KEY_PASSPHRASE_FROM`     | `WEFT_SFTP_KEY_PASSPHRASE`    |
+
+The same `<NAME>_FROM` form works for a variable named by a backup spec's
+`passphrase_env`. Setting both `<NAME>` and `<NAME>_FROM` is an error. The
+plaintext variables still work in this release with a stderr warning, then are
+unset; they are removed in the next minor release. `WEFT_BACKUP_PASSPHRASE_ENV`
+(an indirection to another plaintext variable) is deprecated the same way.
+The passphrase bytes are wiped after key derivation. Not covered: AWS credentials
+for `s3://` (read by the AWS SDK default chain: prefer an IAM role or a shared
+credentials file) and a password embedded in an `sftp://user:pass@…` URL (discouraged).
+
 ## Module layout
 
 ```

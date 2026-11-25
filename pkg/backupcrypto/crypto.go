@@ -26,6 +26,7 @@
 package backupcrypto
 
 import (
+	"context"
 	"crypto/aes"
 	"crypto/cipher"
 	"crypto/rand"
@@ -34,10 +35,11 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"os"
 	"strconv"
 
 	"golang.org/x/crypto/argon2"
+
+	"github.com/openweft/weft-block/internal/secretenv"
 	"golang.org/x/crypto/chacha20poly1305"
 )
 
@@ -109,6 +111,13 @@ func DeriveKey(passphrase, salt []byte, kdf string, kdfParams map[string]string)
 	}
 }
 
+// DeriveKeyAndWipe is DeriveKey that overwrites passphrase with zeros before
+// returning, success or not: the caller no longer needs the secret.
+func DeriveKeyAndWipe(passphrase, salt []byte, kdf string, kdfParams map[string]string) ([]byte, error) {
+	defer clear(passphrase)
+	return DeriveKey(passphrase, salt, kdf, kdfParams)
+}
+
 // LoadPassphrase reads the passphrase from the configured env var. Empty
 // or unset env is an error — we DO NOT fall back to prompting (this code
 // runs unattended in agents / cron jobs ; prompts there are stuck
@@ -117,11 +126,14 @@ func LoadPassphrase(envName string) ([]byte, error) {
 	if envName == "" {
 		return nil, errors.New("backupcrypto: encryption configured but passphrase_env is empty")
 	}
-	v := os.Getenv(envName)
-	if v == "" {
-		return nil, fmt.Errorf("backupcrypto: env %q is unset or empty", envName)
+	v, err := secretenv.Load(context.Background(), envName)
+	if errors.Is(err, secretenv.ErrUnset) {
+		return nil, fmt.Errorf("backupcrypto: env %q (or %s_FROM) is unset or empty", envName, envName)
 	}
-	return []byte(v), nil
+	if err != nil {
+		return nil, fmt.Errorf("backupcrypto: %w", err)
+	}
+	return v, nil
 }
 
 // NewSalt returns saltLen cryptographically-random bytes.
