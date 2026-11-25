@@ -7,6 +7,20 @@ and this project aims to adhere to [Semantic Versioning](https://semver.org/spec
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-11-25
+
+### Added
+
+- **S3 credentials by reference.** `WEFT_BACKUP_S3_ACCESS_KEY_ID_FROM`, `WEFT_BACKUP_S3_SECRET_ACCESS_KEY_FROM` and `WEFT_BACKUP_S3_SESSION_TOKEN_FROM` (secretsource references) are resolved in memory and handed to the AWS SDK as an explicit static provider. The default chain (shared credentials file, IAM role, instance profile, web identity) is untouched when none is set: those hold no secret in the environment.
+- `backuptarget.Redact`: every error that names a target URL now masks a userinfo password (`user:xxxxx@`), and a URL that does not parse is reduced to its scheme (the parser's own error quotes the input).
+
+### Deprecated
+
+- Plaintext `AWS_SECRET_ACCESS_KEY` and `AWS_SESSION_TOKEN` (and, with them, `AWS_ACCESS_KEY_ID`) still work for `s3://` targets with a stderr warning naming the `WEFT_BACKUP_S3_*_FROM` replacement; the secrets are captured and unset from the environment. Removal in the next minor release.
+- A password inside an `sftp://user:pass@host/...` URL still works with a stderr warning and will be REFUSED in the next minor release. Refusing now would strand targets already recorded with a password in their URL (the URL is kept in the store and in backup metadata) before their owners can move the secret to `WEFT_SFTP_PASSWORD_FROM`.
+
+## [0.3.0] - 2026-11-25
+
 ### Added
 
 - **Secrets by reference** (`internal/secretenv`, same pattern as weft-loom-server v0.4.0 and weft-webui v0.6.0). `WEFT_BACKUP_PASSPHRASE_FROM`, `WEFT_SFTP_PASSWORD_FROM` and `WEFT_SFTP_KEY_PASSPHRASE_FROM` take a `github.com/go-authn/secretsource` v0.12.0 reference (`systemd-creds:NAME`, `keychain:`, `keepassxc:`, `file:PATH` with its 0600 check). The same `<NAME>_FROM` form applies to any variable named by a backup spec's `passphrase_env`. Both `<NAME>` and `<NAME>_FROM` set is an error; an unresolvable reference is an error that never echoes the value.
@@ -16,6 +30,10 @@ and this project aims to adhere to [Semantic Versioning](https://semver.org/spec
 
 - Plaintext `WEFT_BACKUP_PASSPHRASE`, `WEFT_SFTP_PASSWORD` and `WEFT_SFTP_KEY_PASSPHRASE` (and any plaintext variable named by `passphrase_env`) still work in this release but print a deprecation warning on stderr naming `<NAME>_FROM`, and are then unset from the process environment. A plaintext secret in the environment is visible in `/proc/<pid>/environ` and inherited by children. Removal in the next minor release.
 - `WEFT_BACKUP_PASSPHRASE_ENV` (an indirection to another plaintext variable) is deprecated the same way: use `WEFT_BACKUP_PASSPHRASE_FROM`.
+
+## [0.2.0] and earlier
+
+### Added
 
 - **End-to-end snapshot/backup driver pipeline** for the `weft-block` plugin :
   - Snapshot CRUD + Revert through the standard `drivers.VolumeDriver` interface (`CreateSnapshot` / `ListSnapshots` / `DeleteSnapshot` / `RevertSnapshot`).

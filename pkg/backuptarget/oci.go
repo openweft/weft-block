@@ -74,11 +74,11 @@ type ociTarget struct {
 
 func newOCITarget(u *url.URL) (Target, error) {
 	if u.Host == "" {
-		return nil, fmt.Errorf("backuptarget: oci URL %q missing host", u.String())
+		return nil, fmt.Errorf("backuptarget: oci URL %q missing host", u.Redacted())
 	}
 	repo := strings.TrimPrefix(u.Path, "/")
 	if repo == "" {
-		return nil, fmt.Errorf("backuptarget: oci URL %q missing repository path", u.String())
+		return nil, fmt.Errorf("backuptarget: oci URL %q missing repository path", u.Redacted())
 	}
 	return &ociTarget{registry: u.Host, repo: repo}, nil
 }
@@ -119,14 +119,14 @@ func (t *ociTarget) tagFor(fullURL string) (string, error) {
 		return "", err
 	}
 	if u.Scheme != SchemeOCI {
-		return "", fmt.Errorf("oci target got non-oci URL %q", fullURL)
+		return "", fmt.Errorf("oci target got non-oci URL %q", Redact(fullURL))
 	}
 	// The path is "/<repo>:<tag>" — split on ':' to recover the tag.
 	p := strings.TrimPrefix(u.Path, "/")
 	if i := strings.LastIndex(p, ":"); i > 0 {
 		return p[i+1:], nil
 	}
-	return "", fmt.Errorf("oci URL %q is missing a :tag", fullURL)
+	return "", fmt.Errorf("oci URL %q is missing a :tag", Redact(fullURL))
 }
 
 func (t *ociTarget) Push(ctx context.Context, fullURL string, size int64, body io.Reader) error {

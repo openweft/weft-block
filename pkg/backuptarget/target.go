@@ -88,7 +88,7 @@ type Entry struct {
 func New(targetURL string) (Target, error) {
 	u, err := url.Parse(targetURL)
 	if err != nil {
-		return nil, fmt.Errorf("backuptarget: parse %q: %w", targetURL, err)
+		return nil, fmt.Errorf("backuptarget: parse %q: %w", Redact(targetURL), parseCause(err))
 	}
 	switch strings.ToLower(u.Scheme) {
 	case SchemeOCI:

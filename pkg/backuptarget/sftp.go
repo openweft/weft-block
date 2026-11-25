@@ -66,7 +66,7 @@ const (
 
 func newSFTPTarget(u *url.URL) (Target, error) {
 	if u.Host == "" {
-		return nil, fmt.Errorf("backuptarget: sftp URL %q missing host", u.String())
+		return nil, fmt.Errorf("backuptarget: sftp URL %q missing host", u.Redacted())
 	}
 	host := u.Hostname()
 	port := u.Port()
@@ -75,9 +75,16 @@ func newSFTPTarget(u *url.URL) (Target, error) {
 	}
 	user := u.User.Username()
 	if user == "" {
-		return nil, fmt.Errorf("backuptarget: sftp URL %q missing user", u.String())
+		return nil, fmt.Errorf("backuptarget: sftp URL %q missing user", u.Redacted())
 	}
-	pwd, _ := u.User.Password()
+	pwd, hasPwd := u.User.Password()
+	if hasPwd {
+		// Warn now, refuse in the next minor release: a refusal today would
+		// strand targets already recorded with a password in their URL (they
+		// sit in the store, in logs and in backup metadata) before their
+		// owners can move the secret to WEFT_SFTP_PASSWORD_FROM.
+		secretenv.WarnOnce("sftp-url-password", "sftp:// URL with a password is deprecated and will be refused in the next minor release: the URL is stored and logged; put the password in "+envSFTPPassword+"_FROM=<ref> and drop it from the URL")
+	}
 	return &sftpTarget{
 		host:     net.JoinHostPort(host, port),
 		user:     user,
@@ -206,10 +213,10 @@ func (t *sftpTarget) hostKeyCallback() (ssh.HostKeyCallback, error) {
 func (t *sftpTarget) resolvePath(fullURL string) (string, error) {
 	u, err := url.Parse(fullURL)
 	if err != nil {
-		return "", fmt.Errorf("parse url %q: %w", fullURL, err)
+		return "", fmt.Errorf("parse url %q: %w", Redact(fullURL), parseCause(err))
 	}
 	if u.Scheme != SchemeSFTP {
-		return "", fmt.Errorf("sftp target got non-sftp URL %q", fullURL)
+		return "", fmt.Errorf("sftp target got non-sftp URL %q", Redact(fullURL))
 	}
 	return u.Path, nil
 }
@@ -335,7 +342,7 @@ func (t *sftpTarget) Delete(ctx context.Context, fullURL string) error {
 func mustParse(s string) *url.URL {
 	u, err := url.Parse(s)
 	if err != nil {
-		panic(fmt.Sprintf("backuptarget: re-parse of validated URL %q failed: %v", s, err))
+		panic(fmt.Sprintf("backuptarget: re-parse of validated URL %q failed: %v", Redact(s), parseCause(err)))
 	}
 	return u
 }

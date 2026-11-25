@@ -19,9 +19,9 @@ package backuptarget
 // authority — the SDK uses it to construct the endpoint URL when no
 // override is provided.
 //
-// Credentials follow the SDK's default chain : env vars (AWS_ACCESS_KEY_ID
-// + AWS_SECRET_ACCESS_KEY), shared credentials file, IAM role, etc. No
-// custom auth knobs here ; the SDK does the right thing.
+// Credentials : WEFT_BACKUP_S3_*_FROM references (see s3creds.go), else the
+// SDK's default chain (shared credentials file, IAM role, instance profile,
+// web identity). Plaintext AWS_SECRET_ACCESS_KEY still works, deprecated.
 //
 // Endpoint override : $AWS_ENDPOINT_URL_S3 (e.g.
 // "https://versitygw.internal:8000" or "https://cubefs-objectnode.internal")
@@ -93,6 +93,13 @@ func (t *s3Target) client(ctx context.Context) (*s3.Client, error) {
 	if t.region != "" {
 		loadOpts = append(loadOpts, awsconfig.WithRegion(t.region))
 	}
+	provider, err := s3Credentials(ctx)
+	if err != nil {
+		return nil, err
+	}
+	if provider != nil {
+		loadOpts = append(loadOpts, awsconfig.WithCredentialsProvider(provider))
+	}
 	cfg, err := awsconfig.LoadDefaultConfig(ctx, loadOpts...)
 	if err != nil {
 		return nil, fmt.Errorf("aws config: %w", err)
@@ -111,10 +118,10 @@ func (t *s3Target) client(ctx context.Context) (*s3.Client, error) {
 func (t *s3Target) keyFor(fullURL string) (string, error) {
 	u, err := url.Parse(fullURL)
 	if err != nil {
-		return "", fmt.Errorf("parse url %q: %w", fullURL, err)
+		return "", fmt.Errorf("parse url %q: %w", Redact(fullURL), parseCause(err))
 	}
 	if u.Scheme != SchemeS3 {
-		return "", fmt.Errorf("s3 target got non-s3 URL %q", fullURL)
+		return "", fmt.Errorf("s3 target got non-s3 URL %q", Redact(fullURL))
 	}
 	return strings.TrimPrefix(u.Path, "/"), nil
 }
