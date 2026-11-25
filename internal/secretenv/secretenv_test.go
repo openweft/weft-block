@@ -86,8 +86,11 @@ func TestUnresolvableRefNeverEchoesValue(t *testing.T) {
 	setup(t, func(string) ([]byte, error) { return nil, errors.New("no such credential") })
 	t.Setenv("X_PASS_FROM", "systemd-creds:x")
 	_, err := Load(context.Background(), "X_PASS")
-	if err == nil || !strings.Contains(err.Error(), "X_PASS_FROM") {
+	if err == nil || !strings.Contains(err.Error(), "X_PASS_FROM") || !strings.Contains(err.Error(), "no such credential") {
 		t.Fatalf("err = %v", err)
+	}
+	if strings.Contains(err.Error(), "empty") {
+		t.Fatalf("open error masked as an empty secret: %v", err)
 	}
 }
 
@@ -133,7 +136,7 @@ func TestDefaultOpenReadsAFileReference(t *testing.T) {
 		t.Fatalf("= %q, %v", v, err)
 	}
 	t.Setenv("X_MISSING_FROM", "file:"+filepath.Join(t.TempDir(), "absent"))
-	if _, err := Load(context.Background(), "X_MISSING"); err == nil || !strings.Contains(err.Error(), "X_MISSING_FROM") {
+	if _, err := Load(context.Background(), "X_MISSING"); err == nil || !strings.Contains(err.Error(), "X_MISSING_FROM") || strings.Contains(err.Error(), "empty") {
 		t.Fatalf("err = %v", err)
 	}
 }
