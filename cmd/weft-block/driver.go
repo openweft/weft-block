@@ -570,11 +570,11 @@ func readBackupMetaSibling(ctx context.Context, tgt backuptarget.Target, binURL 
 	metaURL := strings.TrimSuffix(binURL, ".bin") + ".json"
 	var buf strings.Builder
 	if _, err := tgt.Pull(ctx, metaURL, &builderWriter{&buf}); err != nil {
-		return backupMeta{}, fmt.Errorf("pull %s: %w", metaURL, err)
+		return backupMeta{}, fmt.Errorf("pull %s: %w", backuptarget.Redact(metaURL), err)
 	}
 	var m backupMeta
 	if err := json.Unmarshal([]byte(buf.String()), &m); err != nil {
-		return backupMeta{}, fmt.Errorf("parse %s: %w", metaURL, err)
+		return backupMeta{}, fmt.Errorf("parse %s: %w", backuptarget.Redact(metaURL), err)
 	}
 	return m, nil
 }
@@ -970,7 +970,7 @@ func (v *volumeDriver) walkBackupChain(ctx context.Context, leafURL string) ([]c
 		current = meta.ParentURL
 	}
 	if len(chain) == maxChain {
-		return nil, fmt.Errorf("backup chain at %s exceeds %d links — refusing to walk further (likely a cycle)", leafURL, maxChain)
+		return nil, fmt.Errorf("backup chain at %s exceeds %d links — refusing to walk further (likely a cycle)", backuptarget.Redact(leafURL), maxChain)
 	}
 	// Reverse the chain so the caller applies root → leaf.
 	for i, j := 0, len(chain)-1; i < j; i, j = i+1, j-1 {
@@ -1012,14 +1012,14 @@ func (v *volumeDriver) RestoreBackup(ctx context.Context, backupURL string, spec
 		return fmt.Errorf("weft-block: RestoreBackup: %w", err)
 	}
 	if len(chain) == 0 {
-		return fmt.Errorf("weft-block: RestoreBackup: empty chain at %s", backupURL)
+		return fmt.Errorf("weft-block: RestoreBackup: empty chain at %s", backuptarget.Redact(backupURL))
 	}
 	if len(chain[0].meta.Ranges) > 0 {
-		return fmt.Errorf("weft-block: RestoreBackup: chain root at %s is an incremental — its parent is missing from the target", chain[0].url)
+		return fmt.Errorf("weft-block: RestoreBackup: chain root at %s is an incremental — its parent is missing from the target", backuptarget.Redact(chain[0].url))
 	}
 	for i, link := range chain {
 		if err := v.restoreOneBackup(ctx, h, link.url, link.meta); err != nil {
-			return fmt.Errorf("weft-block: RestoreBackup: apply chain[%d] %s: %w", i, link.url, err)
+			return fmt.Errorf("weft-block: RestoreBackup: apply chain[%d] %s: %w", i, backuptarget.Redact(link.url), err)
 		}
 	}
 	return nil

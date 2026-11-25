@@ -57,7 +57,7 @@ func (t *fsTarget) pathFor(fullURL string) (string, error) {
 		return "", err
 	}
 	if u.Scheme != SchemeFS {
-		return "", fmt.Errorf("fs target got non-fs URL %q", fullURL)
+		return "", fmt.Errorf("fs target got non-fs URL %q", Redact(fullURL))
 	}
 	if !filepath.IsAbs(u.Path) {
 		return "", fmt.Errorf("fs URL path %q must be absolute", u.Path)

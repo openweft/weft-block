@@ -77,15 +77,21 @@ The daemon never takes a secret as a plaintext environment variable (visible in
 | Backup encryption passphrase   | `WEFT_BACKUP_PASSPHRASE_FROM`       | `WEFT_BACKUP_PASSPHRASE`      |
 | SFTP target password           | `WEFT_SFTP_PASSWORD_FROM`           | `WEFT_SFTP_PASSWORD`          |
 | SFTP private-key passphrase    | `WEFT_SFTP_KEY_PASSPHRASE_FROM`     | `WEFT_SFTP_KEY_PASSPHRASE`    |
+| S3 secret access key           | `WEFT_BACKUP_S3_SECRET_ACCESS_KEY_FROM` | `AWS_SECRET_ACCESS_KEY`   |
+| S3 session token               | `WEFT_BACKUP_S3_SESSION_TOKEN_FROM` | `AWS_SESSION_TOKEN`           |
+| S3 access key id (not secret)  | `WEFT_BACKUP_S3_ACCESS_KEY_ID_FROM` | `AWS_ACCESS_KEY_ID`           |
 
 The same `<NAME>_FROM` form works for a variable named by a backup spec's
 `passphrase_env`. Setting both `<NAME>` and `<NAME>_FROM` is an error. The
 plaintext variables still work in this release with a stderr warning, then are
 unset; they are removed in the next minor release. `WEFT_BACKUP_PASSPHRASE_ENV`
 (an indirection to another plaintext variable) is deprecated the same way.
-The passphrase bytes are wiped after key derivation. Not covered: AWS credentials
-for `s3://` (read by the AWS SDK default chain: prefer an IAM role or a shared
-credentials file) and a password embedded in an `sftp://user:pass@…` URL (discouraged).
+The passphrase bytes are wiped after key derivation. For `s3://`, the `_FROM`
+values go to the AWS SDK as an explicit static provider; with none set the SDK
+default chain (shared credentials file, IAM role, instance profile, web identity)
+is unchanged. A password inside an `sftp://user:pass@…` URL is deprecated: it warns
+in this release and will be refused in the next minor one; use
+`WEFT_SFTP_PASSWORD_FROM`. Errors never print a URL's password.
 
 ## Module layout
 
