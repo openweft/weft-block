@@ -25,6 +25,7 @@ import (
 	drivers "github.com/openweft/weft-drivers"
 
 	"github.com/openweft/weft-block/control"
+	"github.com/openweft/weft-block/internal/secretenv"
 	"github.com/openweft/weft-block/pkg/backupcrypto"
 	"github.com/openweft/weft-block/pkg/backuptarget"
 	"github.com/openweft/weft-block/pkg/reconcile"
@@ -612,7 +613,7 @@ func (v *volumeDriver) CreateBackup(ctx context.Context, spec drivers.BackupSpec
 		if err != nil {
 			return drivers.Backup{}, fmt.Errorf("weft-block: CreateBackup: salt: %w", err)
 		}
-		key, err := backupcrypto.DeriveKey(passphrase, salt, spec.Encryption.KDF, spec.Encryption.KDFParams)
+		key, err := backupcrypto.DeriveKeyAndWipe(passphrase, salt, spec.Encryption.KDF, spec.Encryption.KDFParams)
 		if err != nil {
 			return drivers.Backup{}, fmt.Errorf("weft-block: CreateBackup: derive key: %w", err)
 		}
@@ -847,6 +848,18 @@ func (v *volumeDriver) DeleteBackup(ctx context.Context, backupURL string) error
 // SHA-256 verifier + optional AEAD decoder, then either
 // ImportBytes (full) or ImportBytesAtRanges (incremental). Used as the
 // per-link primitive inside RestoreBackup's parent-chain walk.
+// restorePassphraseEnvName names the variable holding the restore passphrase.
+// WEFT_BACKUP_PASSPHRASE_ENV (an indirection to another plaintext variable)
+// is deprecated: set WEFT_BACKUP_PASSPHRASE_FROM to a secret reference. The
+// name is still honoured this release, with a warning.
+func restorePassphraseEnvName() string {
+	if n := os.Getenv("WEFT_BACKUP_PASSPHRASE_ENV"); n != "" {
+		secretenv.DeprecatedEnv("WEFT_BACKUP_PASSPHRASE_ENV", "WEFT_BACKUP_PASSPHRASE_FROM (and unset WEFT_BACKUP_PASSPHRASE_ENV)")
+		return n
+	}
+	return "WEFT_BACKUP_PASSPHRASE"
+}
+
 func (v *volumeDriver) restoreOneBackup(ctx context.Context, h reconcile.EngineHandle, backupURL string, meta backupMeta) error {
 	tgt, err := backuptarget.New(backupURL)
 	if err != nil {
@@ -857,10 +870,7 @@ func (v *volumeDriver) restoreOneBackup(ctx context.Context, h reconcile.EngineH
 		decryptEnabled bool
 	)
 	if meta.Encryption != nil && meta.Encryption.Algorithm != "" {
-		envName := os.Getenv("WEFT_BACKUP_PASSPHRASE_ENV")
-		if envName == "" {
-			envName = "WEFT_BACKUP_PASSPHRASE"
-		}
+		envName := restorePassphraseEnvName()
 		passphrase, err := backupcrypto.LoadPassphrase(envName)
 		if err != nil {
 			return fmt.Errorf("%w (encrypted backup ; set %s)", err, envName)
@@ -869,7 +879,7 @@ func (v *volumeDriver) restoreOneBackup(ctx context.Context, h reconcile.EngineH
 		if err != nil {
 			return fmt.Errorf("decode salt: %w", err)
 		}
-		key, err := backupcrypto.DeriveKey(passphrase, salt, meta.Encryption.KDF, meta.Encryption.KDFParams)
+		key, err := backupcrypto.DeriveKeyAndWipe(passphrase, salt, meta.Encryption.KDF, meta.Encryption.KDFParams)
 		if err != nil {
 			return fmt.Errorf("derive key: %w", err)
 		}

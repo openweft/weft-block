@@ -9,6 +9,14 @@ and this project aims to adhere to [Semantic Versioning](https://semver.org/spec
 
 ### Added
 
+- **Secrets by reference** (`internal/secretenv`, same pattern as weft-loom-server v0.4.0 and weft-webui v0.6.0). `WEFT_BACKUP_PASSPHRASE_FROM`, `WEFT_SFTP_PASSWORD_FROM` and `WEFT_SFTP_KEY_PASSPHRASE_FROM` take a `github.com/go-authn/secretsource` v0.12.0 reference (`systemd-creds:NAME`, `keychain:`, `keepassxc:`, `file:PATH` with its 0600 check). The same `<NAME>_FROM` form applies to any variable named by a backup spec's `passphrase_env`. Both `<NAME>` and `<NAME>_FROM` set is an error; an unresolvable reference is an error that never echoes the value.
+- The backup passphrase bytes are wiped after key derivation (`backupcrypto.DeriveKeyAndWipe`), on success and on error.
+
+### Deprecated
+
+- Plaintext `WEFT_BACKUP_PASSPHRASE`, `WEFT_SFTP_PASSWORD` and `WEFT_SFTP_KEY_PASSPHRASE` (and any plaintext variable named by `passphrase_env`) still work in this release but print a deprecation warning on stderr naming `<NAME>_FROM`, and are then unset from the process environment. A plaintext secret in the environment is visible in `/proc/<pid>/environ` and inherited by children. Removal in the next minor release.
+- `WEFT_BACKUP_PASSPHRASE_ENV` (an indirection to another plaintext variable) is deprecated the same way: use `WEFT_BACKUP_PASSPHRASE_FROM`.
+
 - **End-to-end snapshot/backup driver pipeline** for the `weft-block` plugin :
   - Snapshot CRUD + Revert through the standard `drivers.VolumeDriver` interface (`CreateSnapshot` / `ListSnapshots` / `DeleteSnapshot` / `RevertSnapshot`).
   - `CreateBackup` / `ListBackups` / `DeleteBackup` / `RestoreBackup` honouring encrypted + incremental chains.
