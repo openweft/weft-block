@@ -110,3 +110,12 @@ func TestS3CredentialsBadReferenceNeverEchoes(t *testing.T) {
 		t.Fatalf("token err = %v", err)
 	}
 }
+
+func TestClientRefusesWhenCredentialsAreIncomplete(t *testing.T) {
+	clearS3Env(t)
+	t.Setenv(envS3SecretAccessKey+"_FROM", credFile(t, "sekret\n"))
+	tg := &s3Target{bucket: "b", region: "r"}
+	if c, err := tg.client(context.Background()); err == nil || c != nil {
+		t.Fatalf("client=%v err=%v", c, err)
+	}
+}
